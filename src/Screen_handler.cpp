@@ -17,7 +17,7 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
   //Function to generate the main UI on the TFT Screen
   int color;
 
-  tft->setCursor(30, 30);
+  /*tft->setCursor(30, 30);
   img->createSprite(30, 50);
   img->fillSprite(0xf80c);
   img->pushSprite(10, 105, TFT_BLACK);
@@ -25,23 +25,29 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
   img->createSprite(30, 50);
   img->fillSprite(0xf80c);
   img->pushSprite(280, 105, TFT_BLACK);
-  img->deleteSprite();
+  img->deleteSprite();*/
 
   //Tachometer
-  img->createSprite(200, 100);
+  int tacho_posX = (240-140)/2-10;
+  int tacho_posY = 70;
+
+  img->createSprite(140, 100);
   img->fillSprite(0xf80c);
   img->setTextColor(TFT_WHITE, 0xf80c);
   img->setTextSize(2);
   // img->drawString("Speed", 25, 10, 4);
-  img->setTextSize(3);
-  img->drawString(String(speed/10), 40, 20, 4);
-  img->drawString(String(speed%10), 85, 20, 4);
+  img->setTextSize(2);
+  img->drawString(String(speed/10), 30, 20, 4);
+  img->drawString(String(speed%10), 62, 20, 4);
   img->setTextSize(1);
-  img->drawString("kph", 130, 40, 4);
-  img->pushSprite(60, 70);
+  img->drawString("kph", 95, 40, 4);
+  img->pushSprite(tacho_posX, tacho_posY);
   img->deleteSprite();
 
   //Mode Selector
+  int mode_posX = (240-170)/2;
+  int mode_posY = 170;
+
   img->createSprite(170, 50);
   for(int y=0; y<50; y++){
     for(int x=0; x<170; x++){
@@ -49,8 +55,11 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
       img->drawPixel(x, y, color);
     }
   }
-  img->pushSprite(80, 180);
+  img->pushSprite(mode_posX, mode_posY);
   img->deleteSprite();
+
+  int logo_posX = (240-160)/2;
+  int logo_posY = 12;
 
   //Autak Logo
   img->createSprite(160,60);
@@ -60,7 +69,7 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
       img->drawPixel(x, y, color);
     }
   }
-  img->pushSprite(80, 10, 0xf8aa);
+  img->pushSprite(logo_posX, logo_posY, 0xf8aa);
   img->deleteSprite();
 };
 
@@ -68,6 +77,9 @@ void displayBatteries(float v1, float v2, TFT_eSPI *tft, TFT_eSprite *img){
   //Function to display the battery gauges on the TFT Screen
   int color;
   //Battery 1
+  int bat1_posX = 5;
+  int bat1_posY = (240-100)/2-20;
+
   img->createSprite(100,100);
   img->fillSprite(TFT_BLUE);
   img->setTextColor(TFT_WHITE, 0xf80c);
@@ -79,22 +91,35 @@ void displayBatteries(float v1, float v2, TFT_eSPI *tft, TFT_eSprite *img){
   else color = TFT_RED;
   img->fillRect(13, 84-height, 8, height, color);
   
+  //New, print batteries separately
+  img->setCursor(13, 40);
+  img->setTextSize(1);
+  img->print(F("B1"));
+  img->setCursor(10, 87);
+  img->printf(("%i%%"), (int)(v1/maximumVoltage * 100));
+  img->pushSprite(bat1_posX, bat1_posY, TFT_BLUE);
+  img->deleteSprite();
+
   //Battery 2
-  img->drawRect(37, 50, 10, 35, TFT_BLACK);
-  img->fillRect(38, 51, 8, 33, 0xf80c);
+  int bat2_posX = 240-40;
+  int bat2_posY = (240-100)/2-20;
+
+  img->createSprite(100,100);
+  img->fillSprite(TFT_BLUE);
+  img->setTextColor(TFT_WHITE, 0xf80c);
+  img->drawRect(12, 50, 10, 35, TFT_BLACK);
+  img->fillRect(13, 51, 8, 33, 0xf80c);
   height = (v2/maximumVoltage) * 33;
   if (v2/maximumVoltage>0.5) color = TFT_GREEN;
   else if(v2/maximumVoltage <0.5 && v2/maximumVoltage>0.2) color = TFT_ORANGE;
   else color = TFT_RED;
-  img->fillRect(38, 84-height, 8, height, color);
+  img->fillRect(13, 84-height, 8, height, color);
   img->setCursor(13, 40);
   img->setTextSize(1);
-  img->print(F("B1  B2"));
+  img->print(F("B2"));
   img->setCursor(10, 87);
-  img->printf(("%i%%"), (int)(v1/maximumVoltage * 100));
-  img->setCursor(36, 87);
   img->printf(("%i%%"), (int)(v2/maximumVoltage * 100));
-  img->pushSprite(5, 140, TFT_BLUE);
+  img->pushSprite(bat2_posX, bat2_posY, TFT_BLUE);
   img->deleteSprite();
 };
 

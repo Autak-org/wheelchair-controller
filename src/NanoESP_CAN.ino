@@ -38,6 +38,7 @@
 #include "Screen_handler.h"
 #include "PID_Controller.h"
 
+#define LED 22
 
 IPAddress apIP(192, 168, 1, 1); // IP address of the access point
 
@@ -284,7 +285,6 @@ void main_loop() {
       }else{
         Serial.print("Received something from: ");
         printBin(receivedMessage.identifier);
-        receivedMessage.data
       }
     }
   }
@@ -544,9 +544,22 @@ void setup() {
   pinMode(BTN4, INPUT);
 
   // Initialize TFT display
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, HIGH);
   tft.init();
   tft.setRotation(3);
-  drawImage(image_data, 320, 240, &tft);
+  //drawImage(image_data, 320, 240, &tft);
+  //Replace image by smaller Autak logo
+  tft.fillScreen(0xf80c);
+  img.createSprite(160,60);
+  for(int y=0; y<60; y++){
+    for(int x=0; x<160; x++){
+      uint16_t color = pgm_read_word(&autaklogo[y*160+x]);
+      img.drawPixel(x, y, color);
+    }
+  }
+  img.pushSprite((240-160)/2, (240-60)/2, 0xf8aa);
+  img.deleteSprite();
 
   // Start serial communication for debugging
   Serial.begin(115200);
