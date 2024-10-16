@@ -9,10 +9,19 @@
 #include "selector_stairs.h"
 #include "selector_drive.h"
 
+//Only in here to simplify includes. Should be relocated later on
+enum CONFIG_STATE{
+  CALIBRATION = 0,
+  FOOTREST = 1,
+  BACKREST = 2,
+  ASSEMBLY_LEFT = 3,
+  ASSEMBLY_RIGHT = 4,
+  ASSEMBLY_REAR = 5
+};
 
 void drawImage(const uint16_t *image_data, int width, int height, TFT_eSPI *tft);
 void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img);
 void displayBatteries(float v1, float v2, TFT_eSPI *tft, TFT_eSprite *img);
-void configureMode(TFT_eSPI *tft, TFT_eSprite *img);
+void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_mode);
 
 #endif

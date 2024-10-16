@@ -123,7 +123,7 @@ void displayBatteries(float v1, float v2, TFT_eSPI *tft, TFT_eSprite *img){
   img->deleteSprite();
 };
 
-void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
+void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
   //Function that generates the configuration menu on the TFT Screen and also implements the configuration menu functionality
   //Toggle all mode selectors to false
   bool calibrationMode = false;
@@ -154,18 +154,9 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
   img->pushSprite(80, 10, 0xf8aa);
   img->deleteSprite();
 
-  if(shortPress2){
-    if(selection == 0) selection = 2;
-    else selection--;
-  }
-  if(shortPress3){
-    if(selection == 2) selection = 0;
-    else selection++;
-  }
-  
 
-  switch(selection){
-    case 0:
+  switch(config_state){
+    case CALIBRATION:
       //Calibration menu
       if(!calibrating){
         img->createSprite(170, 50);
@@ -252,7 +243,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
         } 
       }
       break;
-    case 1:
+    case BACKREST:
       //Backrest adjust menu
       img->createSprite(170, 50);
       img->fillSprite(0xf80c);
@@ -296,7 +287,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
       if(backAngle>=maxBackAngle) backAngle = maxBackAngle;
       if(backAngle<=minBackAngle) backAngle = minBackAngle;  
       break;
-    case 2:
+    case FOOTREST:
       //Footrest adjust menu
       img->createSprite(170, 50);
       img->fillSprite(0xf80c);
@@ -339,6 +330,60 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
       }
       if(footAngle>=maxFootAngle) footAngle = maxFootAngle;
       if(footAngle<=minFootAngle) footAngle = minFootAngle;
+      break;
+    case ASSEMBLY_LEFT:
+      img->createSprite(200, 100);
+      img->fillSprite(0xf80c);
+      img->pushSprite(60,180);
+      img->deleteSprite();
+      
+      img->createSprite(200, 10);
+      img->fillSprite(0xf80c);
+      img->pushSprite(35,80);
+      img->deleteSprite();
+
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString("assembly left", 10, 10);
+      img->pushSprite(35, 90, TFT_BLACK);
+      img->deleteSprite();
+      break;
+    case ASSEMBLY_RIGHT:
+      img->createSprite(200, 100);
+      img->fillSprite(0xf80c);
+      img->pushSprite(60,180);
+      img->deleteSprite();
+
+      img->createSprite(200, 10);
+      img->fillSprite(0xf80c);
+      img->pushSprite(35,80);
+      img->deleteSprite();
+
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString("assembly right", 10, 10);
+      img->pushSprite(35, 90, TFT_BLACK);
+      img->deleteSprite();
+      break;
+    case ASSEMBLY_REAR:
+    img->createSprite(200, 100);
+      img->fillSprite(0xf80c);
+      img->pushSprite(60,180);
+      img->deleteSprite();
+
+      img->createSprite(200, 10);
+      img->fillSprite(0xf80c);
+      img->pushSprite(35,80);
+      img->deleteSprite();
+
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString("assembly rear", 10, 10);
+      img->pushSprite(35, 90, TFT_BLACK);
+      img->deleteSprite();
       break;
     default:
       break;

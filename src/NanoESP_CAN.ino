@@ -56,6 +56,8 @@ TFT_eSprite img = TFT_eSprite(&tft);
 RTC_DATA_ATTR int bootCount = 0;
 twai_message_t transmittedVESCMessage[6];
 
+int config_state = FOOTREST; //(enum var)
+
 void print_wakeup_reason(){
 
   /* This function print the wakeup reason from deepsleep()/
@@ -200,11 +202,11 @@ void shutdown(){
   */
 
   // Set the motor RPM to 0 (safety precaution)
-  transmittedVESCMessage[0] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
-  transmittedVESCMessage[1] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
-  transmittedVESCMessage[2] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
   transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
-  transmittedVESCMessage[4] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
 
   //Shut down TWAI communication
   if(twai_stop() == ESP_OK) Serial.println("TWAI driver stopped succesfully");
@@ -333,37 +335,61 @@ void main_loop() {
       // if(abs(right_assembly_target - right_assembly_target) < 10) right_assembly = 0;
       // else right_assembly = pid_right.PID_Control(right_assembly_angle, right_assembly_target);
       arcade_drive(x_value, y_value, left_motor, right_motor);
-      transmittedVESCMessage[0] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
-      transmittedVESCMessage[1] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
-      transmittedVESCMessage[2] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
-      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
-      transmittedVESCMessage[4] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
+      transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor); //left wheel motor
+      transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor); //right wheel motor
+      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);            //left assembly motor
+      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);           //right assembly motor
+      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);            //rear assembly motor
     }
     else{
       /*This is the stair climbing mode. It calculates the assemblies motors' speeds according to the joystick's position and constructs 
       the TWAI controls to be transmitted. The wheelchair can not be driven or steered in this mode*/
       stair_climbing_mode(left_assembly, right_assembly);
-      //transmittedVESCMessage[0] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
-      //transmittedVESCMessage[1] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
-      transmittedVESCMessage[2] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
+      transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
+      transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
+      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
       transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
-      transmittedVESCMessage[4] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
+      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
     }
     maxMsg = 5;
   }
   else{
-    /*This is the configure mode. If the user enters configure mode, the motors' speed is set to 0 for safety reasons*/
-    transmittedVESCMessage[0] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
-    transmittedVESCMessage[1] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
-    transmittedVESCMessage[2] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
-    transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
-    transmittedVESCMessage[4] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
-    if(y_value > 0){
-      transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
-    }else if(y_value < 0){
-      transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
-    }else{
-      transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_STOP);
+    if(config_state == FOOTREST){
+      transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
+
+      if(y_value > 0){
+        transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
+      }else if(y_value < 0){
+        transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
+      }else{
+        transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_STOP);
+      }
+    }else if(config_state == ASSEMBLY_LEFT){
+      //Only turn left wheel assembly
+      stair_climbing_mode(left_assembly, right_assembly);
+      //transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
+      //transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
+      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+      //transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+      //transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
+    }else if(config_state == ASSEMBLY_RIGHT){
+      stair_climbing_mode(left_assembly, right_assembly);
+      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+    }else if(config_state == ASSEMBLY_REAR){
+      int y_val = analogRead(JOYSTICKY);
+      int x_val = analogRead(JOYSTICKX);
+      if(y_val > yMax-200){
+        rear_assembly = 1500;
+      }
+      else if(y_val < yMin + 200){
+        rear_assembly = -1500;
+      }
+      else {rear_assembly = 0;}
+      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
     }
     maxMsg = 6;
   }
@@ -392,7 +418,7 @@ void main_loop() {
     // Execute this block only if the TWAI error flag is true
 
     //Transmit the TWAI messages for the motors
-    if(!configMode){
+    //if(!configMode){
       for(int i=lastMsg; i<maxMsg; i++){
         //esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[i]), pdMS_TO_TICKS(20));
         if(actuatorControllerReady){
@@ -402,20 +428,29 @@ void main_loop() {
           if(transmit_result == ESP_OK){
             Serial.print("Message No: ");
             Serial.println(i);
-            /*Serial.print(transmittedVESCMessage[i].identifier, HEX);
-            Serial.print(transmittedVESCMessage[i].data[0], HEX);
-            Serial.print(transmittedVESCMessage[i].data[1], HEX);
-            Serial.print(transmittedVESCMessage[i].data[2], HEX);
-            Serial.println(transmittedVESCMessage[i].data[3], HEX);*/
             Serial.print(transmittedVESCMessage[i].identifier);
             Serial.print(transmittedVESCMessage[i].data[0]);
-            Serial.print(transmittedVESCMessage[i].data[1]);
-            Serial.print(transmittedVESCMessage[i].data[2]);
-            Serial.println(transmittedVESCMessage[i].data[3]);
           }
           else{ 
             Serial.print(F("Could not transmit VESC message No: "));
             Serial.println(i);
+          }
+
+          //Always send motor and assembly commands together, to avoid buckling
+          if(i==0 || i==2){
+            i+=1;
+
+            esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[i]), pdMS_TO_TICKS(20));
+            if(transmit_result == ESP_OK){
+              Serial.print("Message No: ");
+              Serial.println(i);
+              Serial.print(transmittedVESCMessage[i].identifier);
+              Serial.print(transmittedVESCMessage[i].data[0]);
+            }
+            else{ 
+              Serial.print(F("Could not transmit VESC message No: "));
+              Serial.println(i);
+            }
           }
           actuatorControllerReady = false; 
         }else{
@@ -423,9 +458,9 @@ void main_loop() {
           break;
         }
       }
-    }
+    //}
     //for actuator
-    if(configMode){
+    /*if(configMode){
       //esp_err_t transmit_result = twai_transmit(&(transmittedActuatorsMessage), pdMS_TO_TICKS(20));
       if(actuatorControllerReady){
         esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[5]),pdMS_TO_TICKS(20));
@@ -434,21 +469,13 @@ void main_loop() {
           Serial.print(transmittedVESCMessage[5].identifier);
           Serial.print(transmittedVESCMessage[5].data[0]);
           Serial.println(transmittedVESCMessage[5].data[1]);
-          //Serial.print(transmittedVESCMessage[5].data[2]);
-          //Serial.println(transmittedVESCMessage[5].data[3]);
-          /*Serial.print(transmittedActuatorsMessage.identifier);
-          Serial.print(" ");
-          Serial.print(transmittedActuatorsMessage.data[0]);
-          Serial.print(transmittedActuatorsMessage.data[1]);
-          Serial.print(transmittedActuatorsMessage.data[2]);
-          Serial.println(transmittedActuatorsMessage.data[3]);*/
           actuatorControllerReady = false;
         }
         else{ 
           Serial.print(F("Could not transmit actuator message: "));
         }
       }
-    }
+    }*/
 
     //Show alerts
     uint32_t alerts;
@@ -487,11 +514,35 @@ void main_loop() {
   //Enter configuration mode if configMode becomes true, otherwise display the main screen
   if(configMode){
     //Serial.println("config");
-    configureMode(&tft, &img);
+    configureMode(&tft, &img, config_state);
   }
   else{
     //Serial.println("screen");
     createScreen(abs((int)20), driveMode, &tft, &img);
+  }
+
+  //handle config mode navigation
+  if(configMode){
+    if(shortPress1){
+      //send store message
+      /*twai_message_t storeMessage = createActuatorsMessage(66, false, ACTUATOR_EXTEND);
+      esp_err_t transmit_result = twai_transmit(&(storeMessage), pdMS_TO_TICKS(20));
+      if(transmit_result == ESP_OK){
+        Serial.print("Store messasge transmitted");
+      }
+      else{ 
+        Serial.print(F("Could not transmit store message"));
+      }*/
+    }
+
+    if(shortPress2){
+      if(config_state == 0) config_state = 5;
+      else config_state--;
+    }
+    if(shortPress3){
+      if(config_state == 5) config_state = 0;
+      else config_state++;
+    }
   }
 
   //Always have the battery gauges on display 
@@ -678,11 +729,11 @@ void setup() {
     Serial.println("Driver Failed to start");
 
   // Set the motor RPM at 0 on setup as a safety precaution
-  transmittedVESCMessage[0] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
-  transmittedVESCMessage[1] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
-  transmittedVESCMessage[2] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
   transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
-  transmittedVESCMessage[4] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+  transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
   transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_STOP);
 
   // Configure the Access Point
