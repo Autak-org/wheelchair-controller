@@ -54,7 +54,7 @@ TFT_eSprite img = TFT_eSprite(&tft);
 
 
 RTC_DATA_ATTR int bootCount = 0;
-twai_message_t transmittedVESCMessage[5];
+twai_message_t transmittedVESCMessage[6];
 
 void print_wakeup_reason(){
 
@@ -236,10 +236,19 @@ void shutdown(){
   Serial.println("Shutdown Completed");
 }
 
-void printBin(uint32_t aByte) {
+void printBin32(uint32_t aByte) {
   for (int8_t aBit = 31; aBit >= 0; aBit--)
     Serial.write(bitRead(aByte, aBit) ? '1' : '0');
 }
+
+void printBin8(uint32_t aByte) {
+  for (int8_t aBit = 7; aBit >= 0; aBit--)
+    Serial.write(bitRead(aByte, aBit) ? '1' : '0');
+}
+
+bool actuatorControllerReady = true;
+int lastMsg = 0;
+int maxMsg = 5;
 
 void main_loop() {
   /* This is the main loop of the program. As deepsleep is used, this function is called within an infinite loop in the setup phase of the ESP.
@@ -282,9 +291,24 @@ void main_loop() {
         Serial.print(left_assembly_angle);
         Serial.print(" | Right Assembly Angle: ");
         Serial.println(right_assembly_angle);
+      }else if(receivedMessage.identifier == 103){
+        int value = receivedMessage.data[0]<<24 | receivedMessage.data[1] << 16 | receivedMessage.data[2] << 8 | receivedMessage.data[3];
+        if(value == 4){
+          actuatorControllerReady = true;
+          Serial.println("Ready");
+        }
       }else{
         Serial.print("Received something from: ");
-        printBin(receivedMessage.identifier);
+        printBin32(receivedMessage.identifier);
+        /*Serial.print(" ");
+        printBin8(receivedMessage.data[0]);
+        Serial.print(" ");
+        printBin8(receivedMessage.data[1]);
+        Serial.print(" ");
+        printBin8(receivedMessage.data[2]);
+        Serial.print(" ");
+        printBin8(receivedMessage.data[3]);
+        Serial.print("\n");*/
       }
     }
   }
@@ -319,12 +343,13 @@ void main_loop() {
       /*This is the stair climbing mode. It calculates the assemblies motors' speeds according to the joystick's position and constructs 
       the TWAI controls to be transmitted. The wheelchair can not be driven or steered in this mode*/
       stair_climbing_mode(left_assembly, right_assembly);
-      transmittedVESCMessage[0] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
-      transmittedVESCMessage[1] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+      //transmittedVESCMessage[0] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
+      //transmittedVESCMessage[1] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
       transmittedVESCMessage[2] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
       transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
       transmittedVESCMessage[4] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
     }
+    maxMsg = 5;
   }
   else{
     /*This is the configure mode. If the user enters configure mode, the motors' speed is set to 0 for safety reasons*/
@@ -333,6 +358,14 @@ void main_loop() {
     transmittedVESCMessage[2] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
     transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
     transmittedVESCMessage[4] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+    if(y_value > 0){
+      transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
+    }else if(y_value < 0){
+      transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
+    }else{
+      transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_STOP);
+    }
+    maxMsg = 6;
   }
 
     // Get the status information of the node
@@ -359,26 +392,86 @@ void main_loop() {
     // Execute this block only if the TWAI error flag is true
 
     //Transmit the TWAI messages for the motors
-    for(int i=0; i<5; i++){
-      esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[i]), pdMS_TO_TICKS(20));
-      if(transmit_result == ESP_OK){
-        Serial.print("Message No: ");
-        Serial.println(i);
-        /*Serial.print(transmittedVESCMessage[i].identifier, HEX);
-        Serial.print(transmittedVESCMessage[i].data[0], HEX);
-        Serial.print(transmittedVESCMessage[i].data[1], HEX);
-        Serial.print(transmittedVESCMessage[i].data[2], HEX);
-        Serial.println(transmittedVESCMessage[i].data[3], HEX);*/
-        Serial.print(transmittedVESCMessage[i].identifier);
-        Serial.print(transmittedVESCMessage[i].data[0]);
-        Serial.print(transmittedVESCMessage[i].data[1]);
-        Serial.print(transmittedVESCMessage[i].data[2]);
-        Serial.println(transmittedVESCMessage[i].data[3]);
+    if(!configMode){
+      for(int i=lastMsg; i<maxMsg; i++){
+        //esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[i]), pdMS_TO_TICKS(20));
+        if(actuatorControllerReady){
+          if(i==maxMsg-1) lastMsg = 0;
+
+          esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[i]), pdMS_TO_TICKS(20));
+          if(transmit_result == ESP_OK){
+            Serial.print("Message No: ");
+            Serial.println(i);
+            /*Serial.print(transmittedVESCMessage[i].identifier, HEX);
+            Serial.print(transmittedVESCMessage[i].data[0], HEX);
+            Serial.print(transmittedVESCMessage[i].data[1], HEX);
+            Serial.print(transmittedVESCMessage[i].data[2], HEX);
+            Serial.println(transmittedVESCMessage[i].data[3], HEX);*/
+            Serial.print(transmittedVESCMessage[i].identifier);
+            Serial.print(transmittedVESCMessage[i].data[0]);
+            Serial.print(transmittedVESCMessage[i].data[1]);
+            Serial.print(transmittedVESCMessage[i].data[2]);
+            Serial.println(transmittedVESCMessage[i].data[3]);
+          }
+          else{ 
+            Serial.print(F("Could not transmit VESC message No: "));
+            Serial.println(i);
+          }
+          actuatorControllerReady = false; 
+        }else{
+          lastMsg = i;
+          break;
+        }
       }
-      else{ 
-        Serial.print(F("Could not transmit VESC message No: "));
-        Serial.println(i);
-      } 
+    }
+    //for actuator
+    if(configMode){
+      //esp_err_t transmit_result = twai_transmit(&(transmittedActuatorsMessage), pdMS_TO_TICKS(20));
+      if(actuatorControllerReady){
+        esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[5]),pdMS_TO_TICKS(20));
+        if(transmit_result == ESP_OK){
+          Serial.print("Actuator message: ");
+          Serial.print(transmittedVESCMessage[5].identifier);
+          Serial.print(transmittedVESCMessage[5].data[0]);
+          Serial.println(transmittedVESCMessage[5].data[1]);
+          //Serial.print(transmittedVESCMessage[5].data[2]);
+          //Serial.println(transmittedVESCMessage[5].data[3]);
+          /*Serial.print(transmittedActuatorsMessage.identifier);
+          Serial.print(" ");
+          Serial.print(transmittedActuatorsMessage.data[0]);
+          Serial.print(transmittedActuatorsMessage.data[1]);
+          Serial.print(transmittedActuatorsMessage.data[2]);
+          Serial.println(transmittedActuatorsMessage.data[3]);*/
+          actuatorControllerReady = false;
+        }
+        else{ 
+          Serial.print(F("Could not transmit actuator message: "));
+        }
+      }
+    }
+
+    //Show alerts
+    uint32_t alerts;
+    if (twai_read_alerts(&alerts, pdMS_TO_TICKS(10)) == ESP_OK) {
+      // Handle specific alerts
+      if (alerts & TWAI_ALERT_ARB_LOST) {
+          printf("Arbitration lost! Retransmission might occur.\n");
+      }
+      if (alerts & TWAI_ALERT_TX_FAILED) {
+          printf("Transmission failed! Message might be retransmitted.\n");
+      }
+      if (alerts & TWAI_ALERT_ERR_PASS) {
+          printf("Entered error-passive state! Error count increasing.\n");
+      }
+      if (alerts & TWAI_ALERT_BUS_OFF) {
+          printf("Bus-off condition detected! Communication stopped.\n");
+      }
+      if (alerts & TWAI_ALERT_RECOVERY_IN_PROGRESS) {
+          printf("Recovery from bus-off state in progress.\n");
+      }
+      /*if (alerts & TWAI_ALERT_RECOVERY_SUCCESS) {
+          printf("Successfully recovered from bus-off state.\n");
+      }*/
     }
 
     /*The lines below are commented out. They transmit the actuators' TWAI message to the actuators controller. Uncomment when the actuators controller's behavior is as desired*/
@@ -393,11 +486,11 @@ void main_loop() {
 
   //Enter configuration mode if configMode becomes true, otherwise display the main screen
   if(configMode){
-    Serial.println("config");
+    //Serial.println("config");
     configureMode(&tft, &img);
   }
   else{
-    Serial.println("screen");
+    //Serial.println("screen");
     createScreen(abs((int)20), driveMode, &tft, &img);
   }
 
