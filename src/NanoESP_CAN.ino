@@ -54,9 +54,11 @@ TFT_eSprite img = TFT_eSprite(&tft);
 
 
 RTC_DATA_ATTR int bootCount = 0;
-twai_message_t transmittedVESCMessage[6];
+twai_message_t transmittedVESCMessage[7];
 
 int config_state = FOOTREST; //(enum var)
+
+bool shouldSendStore = false;
 
 void print_wakeup_reason(){
 
@@ -105,10 +107,10 @@ void get_joystick_position(int &xval, int &yval){
   if(y<= yMin) y = yMin;
 
   //Set value of x and y axi within the range (-1000, 1000)
-  if(x <= xLowerThresh) xval = map(x, (long)xMin, (long)xLowerThresh, -3000, 0);
-  if(x >= xUpperThresh) xval = map(x, (long)xUpperThresh, (long)xMax, 0, 3000);
-  if(y <= yLowerThresh) yval = map(y, (long)yMin, (long)yLowerThresh, -3000, 0);
-  if(y >= yUpperThresh) yval = map(y, (long)yUpperThresh, (long)yMax, 0, 3000);
+  if(x <= xLowerThresh) xval = map(x, (long)xMin, (long)xLowerThresh, -6000, 0);
+  if(x >= xUpperThresh) xval = map(x, (long)xUpperThresh, (long)xMax, 0, 6000);
+  if(y <= yLowerThresh) yval = map(y, (long)yMin, (long)yLowerThresh, -6000, 0);
+  if(y >= yUpperThresh) yval = map(y, (long)yUpperThresh, (long)yMax, 0, 6000);
 };
 
 void arcade_drive(int x_axis, int y_axis, int& left_motor, int& right_motor){
@@ -250,7 +252,50 @@ void printBin8(uint32_t aByte) {
 
 bool actuatorControllerReady = true;
 int lastMsg = 0;
-int maxMsg = 5;
+int maxMsg = 6;
+
+bool standUp = false;
+bool lieDown = false;
+float l_angle = 0;
+float r_angle = 0;
+
+float float16_to_float32(uint16_t h) {
+    uint32_t sign = (h >> 15) & 0x1;
+    uint32_t exponent = (h >> 10) & 0x1F;
+    uint32_t mantissa = h & 0x3FF;
+
+    uint32_t f32;
+
+    if (exponent == 0x1F) { // Inf or NaN
+        if (mantissa == 0) {
+            // Infinity
+            f32 = (sign << 31) | (0xFF << 23);
+        } else {
+            // NaN
+            f32 = (sign << 31) | (0xFF << 23) | (mantissa << 13);
+        }
+        return *(float*)&f32; // Return result as float
+    }
+
+    if (exponent == 0) { // Zero or subnormal number
+        if (mantissa == 0) {
+            // Zero
+            f32 = sign << 31;
+            return *(float*)&f32;
+        } else {
+            // Subnormal number (can be more complex)
+            f32 = sign << 31;
+            return *(float*)&f32;
+        }
+    }
+
+    // Normalized number
+    uint32_t new_exponent = exponent + 127 - 15; // Rebase exponent
+    uint32_t new_mantissa = mantissa << 13;      // Restore mantissa precision
+
+    f32 = (sign << 31) | (new_exponent << 23) | new_mantissa;
+    return *(float*)&f32; // Return result as float
+}
 
 void main_loop() {
   /* This is the main loop of the program. As deepsleep is used, this function is called within an infinite loop in the setup phase of the ESP.
@@ -276,15 +321,15 @@ void main_loop() {
     if(twai_receive(&receivedMessage, pdMS_TO_TICKS(20)) == ESP_OK){
       if(receivedMessage.identifier == 100){
         voltage1 = receivedMessage.data[0]<<24 | receivedMessage.data[1] << 16 | receivedMessage.data[2] << 8 | receivedMessage.data[3];
-        Serial.println("Voltage 1 message received");
+        //Serial.println("Voltage 1 message received");
       }
       else if(receivedMessage.identifier == 101){
         voltage2 = receivedMessage.data[0]<<24 | receivedMessage.data[1] << 16 | receivedMessage.data[2] << 8 | receivedMessage.data[3];
-        Serial.println("Voltage 2 message received");
+        //Serial.println("Voltage 2 message received");
       }
       else if(receivedMessage.identifier == 102){
         temperature = receivedMessage.data[0]<<24 | receivedMessage.data[1] << 16 | receivedMessage.data[2] << 8 | receivedMessage.data[3];
-        Serial.println("Temperature message received");
+        //Serial.println("Temperature message received");
       }
       else if(receivedMessage.identifier == 42){
         memcpy(&left_assembly_angle, &receivedMessage.data[0], sizeof(float));
@@ -297,11 +342,27 @@ void main_loop() {
         int value = receivedMessage.data[0]<<24 | receivedMessage.data[1] << 16 | receivedMessage.data[2] << 8 | receivedMessage.data[3];
         if(value == 4){
           actuatorControllerReady = true;
-          Serial.println("Ready");
+          //Serial.println("Ready");
         }
       }else{
-        Serial.print("Received something from: ");
-        printBin32(receivedMessage.identifier);
+        if(receivedMessage.identifier == 106){
+          //Serial.println("Received angle message");
+          actuatorControllerReady = true;
+          l_angle = float16_to_float32((uint16_t)receivedMessage.data[2]<<8 | receivedMessage.data[3]);
+          r_angle = float16_to_float32((uint16_t)receivedMessage.data[0]<<8 | receivedMessage.data[1]);
+
+          /*Serial.print(receivedMessage.data[0], HEX);
+          Serial.print(" ");
+          Serial.print(receivedMessage.data[1], HEX);
+          Serial.print(" ");
+          Serial.print(receivedMessage.data[2], HEX);
+          Serial.print(" ");
+          Serial.print(receivedMessage.data[3], HEX);
+          Serial.print(" ");*/
+          //Serial.println(float16_to_float32(l_angle));
+        }
+        //Serial.print("Received something from: ");
+        //printBin32(receivedMessage.identifier);
         /*Serial.print(" ");
         printBin8(receivedMessage.data[0]);
         Serial.print(" ");
@@ -318,80 +379,157 @@ void main_loop() {
   //Get the joysticks position
   get_joystick_position(x_value, y_value);
 
-  // Implement functionality for configureation mode, drive mode and stair climbing mode.
-  if(!configMode){
-    if(driveMode){
-      /*This is the drive mode. It reads the joysticks position, calculates the motor speeds and constructs the TWAI messages to control the motors. The assemblies are only 
-        controlled by the PID control loops and not from user input*/
+  if(!standUp && !lieDown){
 
-      /*The following code is commented out for troubleshooting purposes. *_assembly_target sets the target angle for the two front assemblies, to be used 
-        in the PID control loop. The algorithm has a margin of 10 degrees of error, which can be adjusted in the following lines.*/
-      // float left_assembly_target = 90.0;
-      // float right_assembly_target = 90.0;
+    // Implement functionality for configureation mode, drive mode and stair climbing mode.
+    if(!configMode){
+      if(driveMode){
+        /*This is the drive mode. It reads the joysticks position, calculates the motor speeds and constructs the TWAI messages to control the motors. The assemblies are only 
+          controlled by the PID control loops and not from user input*/
 
-      // if(abs(left_assembly_target - left_assembly_angle) < 10) left_assembly = 0;
-      // else left_assembly = pid_left.PID_Control(left_assembly_angle, left_assembly_target);
+        /*The following code is commented out for troubleshooting purposes. *_assembly_target sets the target angle for the two front assemblies, to be used 
+          in the PID control loop. The algorithm has a margin of 10 degrees of error, which can be adjusted in the following lines.*/
+        // float left_assembly_target = 90.0;
+        // float right_assembly_target = 90.0;
 
-      // if(abs(right_assembly_target - right_assembly_target) < 10) right_assembly = 0;
-      // else right_assembly = pid_right.PID_Control(right_assembly_angle, right_assembly_target);
-      arcade_drive(x_value, y_value, left_motor, right_motor);
-      transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor); //left wheel motor
-      transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor); //right wheel motor
-      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);            //left assembly motor
-      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);           //right assembly motor
-      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);            //rear assembly motor
+        // if(abs(left_assembly_target - left_assembly_angle) < 10) left_assembly = 0;
+        // else left_assembly = pid_left.PID_Control(left_assembly_angle, left_assembly_target);
+
+        // if(abs(right_assembly_target - right_assembly_target) < 10) right_assembly = 0;
+        // else right_assembly = pid_right.PID_Control(right_assembly_angle, right_assembly_target);
+        arcade_drive(x_value, y_value, left_motor, right_motor);
+        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor); //left wheel motor
+        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor); //right wheel motor
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);            //left assembly motor
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);           //right assembly motor
+        transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);            //rear assembly motor
+      }
+      else{
+        /*This is the stair climbing mode. It calculates the assemblies motors' speeds according to the joystick's position and constructs 
+        the TWAI controls to be transmitted. The wheelchair can not be driven or steered in this mode*/
+        stair_climbing_mode(left_assembly, right_assembly);
+        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
+        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+        transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
+      }
+      maxMsg = 5;
     }
     else{
-      /*This is the stair climbing mode. It calculates the assemblies motors' speeds according to the joystick's position and constructs 
-      the TWAI controls to be transmitted. The wheelchair can not be driven or steered in this mode*/
-      stair_climbing_mode(left_assembly, right_assembly);
-      transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
-      transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
-      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
-      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
-      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
+      if(config_state == FOOTREST){
+        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
+
+        if(y_value > 0){
+          transmittedVESCMessage[5] = createActuatorsMessage(99, FOOTREST_ACTUATOR, ACTUATOR_EXTEND);
+        }else if(y_value < 0){
+          transmittedVESCMessage[5] = createActuatorsMessage(99, FOOTREST_ACTUATOR, ACTUATOR_RETRACT);
+        }else{
+          transmittedVESCMessage[5] = createActuatorsMessage(99, FOOTREST_ACTUATOR, ACTUATOR_STOP);
+        }
+      }else if(config_state == SEAT){
+        Serial.println("Should move seat");
+        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+        transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
+
+        if(y_value > 0){
+          transmittedVESCMessage[5] = createActuatorsMessage(99, SEAT_ACTUATOR, ACTUATOR_EXTEND);
+        }else if(y_value < 0){
+          transmittedVESCMessage[5] = createActuatorsMessage(99, SEAT_ACTUATOR, ACTUATOR_RETRACT);
+        }else{
+          transmittedVESCMessage[5] = createActuatorsMessage(99, SEAT_ACTUATOR, ACTUATOR_STOP);
+        }
+      }else if(config_state == ASSEMBLY_LEFT){
+        //Only turn left wheel assembly
+        stair_climbing_mode(left_assembly, right_assembly);
+        //transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
+        //transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+        //transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+        //transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
+      }else if(config_state == ASSEMBLY_RIGHT){
+        stair_climbing_mode(left_assembly, right_assembly);
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+      }else if(config_state == ASSEMBLY_REAR){
+        int y_val = analogRead(JOYSTICKY);
+        int x_val = analogRead(JOYSTICKX);
+        if(y_val > yMax-200){
+          rear_assembly = 1500;
+        }
+        else if(y_val < yMin + 200){
+          rear_assembly = -1500;
+        }
+        else {rear_assembly = 0;}
+        transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
+      }
+      if(shouldSendStore){
+        transmittedVESCMessage[6] = createActuatorsMessage(66, FOOTREST_ACTUATOR, ACTUATOR_STOP);
+        maxMsg = 7;
+      }else{
+        maxMsg = 6;
+      }
     }
-    maxMsg = 5;
-  }
-  else{
-    if(config_state == FOOTREST){
+
+  }else{
+    if(standUp){
+      //Standup mode
+      Serial.println(l_angle);
+      Serial.println(r_angle);
+
       transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
       transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
-      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
-      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
       transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
 
-      if(y_value > 0){
-        transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
-      }else if(y_value < 0){
-        transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
+      if(l_angle < 60){
+        //left
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 1500);
       }else{
-        transmittedVESCMessage[5] = createActuatorsMessage(99, false, ACTUATOR_STOP);
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
       }
-    }else if(config_state == ASSEMBLY_LEFT){
-      //Only turn left wheel assembly
-      stair_climbing_mode(left_assembly, right_assembly);
-      //transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
-      //transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
-      transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
-      //transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
-      //transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
-    }else if(config_state == ASSEMBLY_RIGHT){
-      stair_climbing_mode(left_assembly, right_assembly);
-      transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
-    }else if(config_state == ASSEMBLY_REAR){
-      int y_val = analogRead(JOYSTICKY);
-      int x_val = analogRead(JOYSTICKX);
-      if(y_val > yMax-200){
-        rear_assembly = 1500;
+      if(r_angle < 60){
+        //right
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 1500);
+      }else{
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
       }
-      else if(y_val < yMin + 200){
-        rear_assembly = -1500;
+      if(!(l_angle < 60) && !(r_angle < 60)){
+        standUp = false;
+        Serial.println("Finishing stand up");
       }
-      else {rear_assembly = 0;}
-      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
     }
-    maxMsg = 6;
+    if(lieDown){
+      //Standup mode
+      Serial.println(l_angle);
+      Serial.println(r_angle);
+
+      transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
+
+      if(l_angle > 0 && r_angle > 0){
+        //left
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, -1500);
+      }else{
+        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+      }
+      if(r_angle > 0){
+        //right
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, -1500);
+      }else{
+        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+      }
+      if(!(l_angle > 0) && !(r_angle > 0)){
+        lieDown = false;
+      }
+    }
+    maxMsg = 5;
   }
 
     // Get the status information of the node
@@ -424,12 +562,20 @@ void main_loop() {
         if(actuatorControllerReady){
           if(i==maxMsg-1) lastMsg = 0;
 
+          //Enable skipping config message for reset integration
+          //if(!configMode && i==5) continue;
+
+          if(i==6){
+            shouldSendStore = false;
+            Serial.println("Sent reset message");
+          }
+
           esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[i]), pdMS_TO_TICKS(20));
           if(transmit_result == ESP_OK){
-            Serial.print("Message No: ");
-            Serial.println(i);
-            Serial.print(transmittedVESCMessage[i].identifier);
-            Serial.print(transmittedVESCMessage[i].data[0]);
+            //Serial.print("Message No: ");
+            //Serial.println(i);
+            //Serial.print(transmittedVESCMessage[i].identifier);
+            //Serial.print(transmittedVESCMessage[i].data[0]);
           }
           else{ 
             Serial.print(F("Could not transmit VESC message No: "));
@@ -442,10 +588,10 @@ void main_loop() {
 
             esp_err_t transmit_result = twai_transmit(&(transmittedVESCMessage[i]), pdMS_TO_TICKS(20));
             if(transmit_result == ESP_OK){
-              Serial.print("Message No: ");
+              /*Serial.print("Message No: ");
               Serial.println(i);
               Serial.print(transmittedVESCMessage[i].identifier);
-              Serial.print(transmittedVESCMessage[i].data[0]);
+              Serial.print(transmittedVESCMessage[i].data[0]);*/
             }
             else{ 
               Serial.print(F("Could not transmit VESC message No: "));
@@ -487,6 +633,9 @@ void main_loop() {
       if (alerts & TWAI_ALERT_TX_FAILED) {
           printf("Transmission failed! Message might be retransmitted.\n");
       }
+      if (alerts & TWAI_ALERT_RX_QUEUE_FULL) {
+          printf("Rx queue full.\n");
+      }
       if (alerts & TWAI_ALERT_ERR_PASS) {
           printf("Entered error-passive state! Error count increasing.\n");
       }
@@ -525,22 +674,15 @@ void main_loop() {
   if(configMode){
     if(shortPress1){
       //send store message
-      /*twai_message_t storeMessage = createActuatorsMessage(66, false, ACTUATOR_EXTEND);
-      esp_err_t transmit_result = twai_transmit(&(storeMessage), pdMS_TO_TICKS(20));
-      if(transmit_result == ESP_OK){
-        Serial.print("Store messasge transmitted");
-      }
-      else{ 
-        Serial.print(F("Could not transmit store message"));
-      }*/
+      shouldSendStore = true;
     }
 
     if(shortPress2){
-      if(config_state == 0) config_state = 5;
+      if(config_state == 0) config_state = 6;
       else config_state--;
     }
     if(shortPress3){
-      if(config_state == 5) config_state = 0;
+      if(config_state == 6) config_state = 0;
       else config_state++;
     }
   }
@@ -586,6 +728,7 @@ void main_loop() {
     }
   }
 
+  //right button
   if(millis()-releaseTime2 > 300){
     if(!prevBtn2 && btn2){
       pressedTime2 = millis();
@@ -595,6 +738,11 @@ void main_loop() {
       if(elapsedTime2 > 1200){
         releaseTime2 = millis();
         longPress2 = true;
+        Serial.println("Btn2 long press detected.");
+        if(!lieDown){
+          standUp = true;
+          Serial.println("Standing up...");
+        }
       }
     }
     else if(prevBtn2 && !btn2){
@@ -606,6 +754,7 @@ void main_loop() {
     }
   }
 
+  //left button
   if(millis()-releaseTime3 > 300){
     if(!prevBtn3 && btn3){
       pressedTime3 = millis();
@@ -615,6 +764,10 @@ void main_loop() {
       if(elapsedTime3 > 1200){
         releaseTime3 = millis();
         longPress3 = true;
+        Serial.println("Btn3 long press detected.");
+        if(!standUp){
+          lieDown = true;
+        }
       }
     }
     else if(prevBtn3 && !btn3){
@@ -626,6 +779,7 @@ void main_loop() {
     }
   }
 
+  //top button
   if(millis()-releaseTime4 > 300){
     if(!prevBtn4 && btn4){
       pressedTime4 = millis();
@@ -661,11 +815,10 @@ void main_loop() {
 
   /* Display the battery compartment's temperature. The temperature is received via TWAI communication from the actuators controller. 
   The logic for overheat protection is pending.*/
-  Serial.print("Battery Compartment Temperature: ");
-  Serial.print(temperature);
-  Serial.println(" °C.");
+  //Serial.print("Battery Compartment Temperature: ");
+  //Serial.print(temperature);
+  //Serial.println(" °C.");
 }
-
 
 void setup() {
   //Contains the setup code
@@ -734,7 +887,7 @@ void setup() {
   transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
   transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
   transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
-  transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_STOP);
+  transmittedActuatorsMessage = createActuatorsMessage(99, BACKREST_ACTUATOR, ACTUATOR_STOP);
 
   // Configure the Access Point
   Serial.println("Configuring Access Point...");
