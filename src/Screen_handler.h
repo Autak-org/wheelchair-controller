@@ -14,9 +14,10 @@ enum CONFIG_STATE{
   CALIBRATION = 0,
   FOOTREST = 1,
   BACKREST = 2,
-  ASSEMBLY_LEFT = 3,
-  ASSEMBLY_RIGHT = 4,
-  ASSEMBLY_REAR = 5
+  SEAT = 3,
+  ASSEMBLY_LEFT = 4,
+  ASSEMBLY_RIGHT = 5,
+  ASSEMBLY_REAR = 6
 };
 
 void drawImage(const uint16_t *image_data, int width, int height, TFT_eSPI *tft);

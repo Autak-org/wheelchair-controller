@@ -253,7 +253,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
       img->deleteSprite();
       //Change back angle depending on the joystick input
       if(analogRead(JOYSTICKY)>yMax-400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_EXTEND);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_EXTEND);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 50, 100, 0, TFT_WHITE);
@@ -264,7 +264,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
         img->deleteSprite();
       }
       else if(analogRead(JOYSTICKY)<yMin+400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_RETRACT);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_RETRACT);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 30, 100, 80, TFT_WHITE);
@@ -275,12 +275,13 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
         img->deleteSprite();
       }
       else{
-        transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_STOP);
-        img->createSprite(200, 100);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_STOP);
+        img->createSprite(200, 80);
         img->fillSprite(0xf80c);
         img->setCursor(10, 10);
         img->setTextColor(TFT_WHITE, 0xf80c);
-        img->print(F("Move the joystick up or down to adjust the backrest."));
+        //img->print(F("Move the joystick up or down to adjust the backrest."));
+        img->print(F("Adjust the backrest."));
         img->pushSprite(60,70);
         img->deleteSprite();
       }
@@ -297,7 +298,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
       img->deleteSprite();
       //Change foot rest angle depending on the joystick input
       if(analogRead(JOYSTICKY)>yMax-400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 50, 100, 0, TFT_WHITE);
@@ -308,7 +309,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
         img->deleteSprite();
       }
       else if(analogRead(JOYSTICKY)<yMin+400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 30, 100, 80, TFT_WHITE);
@@ -319,12 +320,56 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
         img->deleteSprite();
       }
       else{
-        transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_STOP);
-        img->createSprite(200, 100);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_STOP);
+        img->createSprite(200, 80);
         img->fillSprite(0xf80c);
         img->setCursor(10, 10);
         img->setTextColor(TFT_WHITE, 0xf80c);
-        img->print(F("Move the joystick up or down to adjust the footrest."));
+        img->print(F("Adjust the footrest."));
+        img->pushSprite(60,70);
+        img->deleteSprite();
+      }
+      if(footAngle>=maxFootAngle) footAngle = maxFootAngle;
+      if(footAngle<=minFootAngle) footAngle = minFootAngle;
+      break;
+    case SEAT:
+      //Footrest adjust menu
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString(menu[selection], 37, 10);
+      img->pushSprite(80, 180, TFT_BLACK);
+      img->deleteSprite();
+      //Change foot rest angle depending on the joystick input
+      if(analogRead(JOYSTICKY)>yMax-400){
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
+        img->createSprite(200, 100);
+        img->fillSprite(0xf80c);
+        img->drawLine(50, 50, 100, 0, TFT_WHITE);
+        img->drawLine(100, 0, 150, 50, TFT_WHITE);
+        img->drawLine(50, 70, 100, 20, TFT_WHITE);
+        img->drawLine(100, 20, 150, 70, TFT_WHITE);
+        img->pushSprite(60, 70);
+        img->deleteSprite();
+      }
+      else if(analogRead(JOYSTICKY)<yMin+400){
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
+        img->createSprite(200, 100);
+        img->fillSprite(0xf80c);
+        img->drawLine(50, 30, 100, 80, TFT_WHITE);
+        img->drawLine(100, 80, 150, 30, TFT_WHITE);
+        img->drawLine(50, 50, 100, 100, TFT_WHITE);
+        img->drawLine(100, 100, 150, 50, TFT_WHITE);
+        img->pushSprite(60, 70);
+        img->deleteSprite();
+      }
+      else{
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_STOP);
+        img->createSprite(200, 80);
+        img->fillSprite(0xf80c);
+        img->setCursor(10, 10);
+        img->setTextColor(TFT_WHITE, 0xf80c);
+        img->print(F("Adjust the seat."));
         img->pushSprite(60,70);
         img->deleteSprite();
       }
