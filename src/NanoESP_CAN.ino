@@ -60,6 +60,8 @@ int config_state = FOOTREST; //(enum var)
 
 bool shouldSendStore = false;
 
+float speed = 0;
+
 void print_wakeup_reason(){
 
   /* This function print the wakeup reason from deepsleep()/
@@ -410,6 +412,9 @@ void main_loop() {
   //Get the joysticks position
   get_joystick_position(x_value, y_value);
 
+  //reset speed for all but driving mode
+  speed = 0;
+
   if(!standUp && !lieDown){
 
     // Implement functionality for configureation mode, drive mode and stair climbing mode.
@@ -429,6 +434,14 @@ void main_loop() {
         // if(abs(right_assembly_target - right_assembly_target) < 10) right_assembly = 0;
         // else right_assembly = pid_right.PID_Control(right_assembly_angle, right_assembly_target);
         arcade_drive(x_value, y_value, left_motor, right_motor);
+        float rps;
+        if(left_motor > 0){
+          rps = max(left_motor, right_motor)/40.0f/60;
+        }else{
+          rps = min(left_motor, right_motor)/40.0f/60;
+        }
+        speed = rps*2*M_PI*0.11f*3.6f; //wheels have an approximate 11cm radius
+        speed /= 10; //Correction factor due to the motors not turning a the correct speed
         transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor); //left wheel motor
         transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor); //right wheel motor
         transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);            //left assembly motor
@@ -440,7 +453,7 @@ void main_loop() {
         the TWAI controls to be transmitted. The wheelchair can not be driven or steered in this mode*/
         stair_climbing_mode(left_assembly, right_assembly);
 
-        int misalignment = 10;
+        int misalignment = 15;
 
         transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
         transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
@@ -492,7 +505,7 @@ void main_loop() {
               transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, -3000);
             }
           }else{
-            climb = 0;
+            //climb = 0;
             transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
             transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
           }
@@ -784,7 +797,7 @@ void main_loop() {
   }
   else{
     //Serial.println("screen");
-    createScreen(abs((int)20), driveMode, &tft, &img);
+    createScreen(speed, driveMode, &tft, &img);
   }
 
   //handle config mode navigation
