@@ -304,6 +304,8 @@ float float16_to_float32(uint16_t h) {
     return *(float*)&f32; // Return result as float
 }
 
+int climb = 0; //0: noclimb, 1: upwards, 2: downwards
+
 void main_loop() {
   /* This is the main loop of the program. As deepsleep is used, this function is called within an infinite loop in the setup phase of the ESP.
     Arguments:
@@ -438,20 +440,62 @@ void main_loop() {
         the TWAI controls to be transmitted. The wheelchair can not be driven or steered in this mode*/
         stair_climbing_mode(left_assembly, right_assembly);
 
-        int misalignment = 15;
+        int misalignment = 10;
 
         transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor);
         transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor);
 
-        if((l_angle-r_angle)>misalignment){
-          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly/2);
-          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
-        }else if((r_angle-l_angle)>misalignment){
-          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
-          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly/2);
-        }else{
-          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
-          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+        if(left_assembly > 0){
+          climb = 1;
+          if((l_angle-r_angle)>misalignment){
+            transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly/2);
+            transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+          }else if((r_angle-l_angle)>misalignment){
+            transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+            transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly/2);
+          }else{
+            transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+            transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+          }
+        }
+        if(left_assembly < 0){
+          climb = 2;
+          if((l_angle-r_angle)<misalignment){
+            transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly/2);
+            transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+          }else if((r_angle-l_angle)>misalignment){
+            transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+            transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly/2);
+          }else{
+            transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, left_assembly);
+            transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, right_assembly);
+          }
+        }
+        //revert misalignment
+        if(left_assembly == 0){
+          if((l_angle-r_angle)>misalignment){
+            if(climb == 1){
+              transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+              transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 3000);
+            }
+            if(climb == 2){
+              transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, -3000);
+              transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+            }
+          }else if((r_angle-l_angle)>misalignment){
+            if(climb == 1){
+              transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 3000);
+              transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+            }
+            if(climb == 2){
+              transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+              transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, -3000);
+            }
+          }else{
+            climb = 0;
+            transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+            transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+          }
         }
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
       }
@@ -533,31 +577,40 @@ void main_loop() {
 
       transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
       transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
-      //transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
 
       //Calculate angular differences to align motor  movements
 
       const int misalignment = 15;
 
-      if(l_angle < 60 && !(((l_angle-r_angle))>misalignment) && !(((l_angle-re_angle))>misalignment)){
+      if(l_angle < 60){
         //left
-        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 1500);
+        if(!(((l_angle-r_angle))>misalignment)){
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 3000);
+        }else{
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 3000/2);
+        }
       }else{
         transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
       }
-      if(r_angle < 60 && !(((r_angle-l_angle))>misalignment) && !(((r_angle-re_angle))>misalignment)){
+      if(r_angle < 60){
         //right
-        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 1500);
+        if(!(((r_angle-l_angle))>misalignment)){
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 3000);
+        }else{
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 3000/2);
+        }
       }else{
         transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
       }
-      if(re_angle < 60 && !(((re_angle-l_angle))>misalignment) && !(((re_angle-r_angle))>misalignment)){
+      //Exclude rear movement for now, too dangerous
+      /*if(re_angle < 60 && !(((re_angle-l_angle))>misalignment) && !(((re_angle-r_angle))>misalignment)){
         //right
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 1500);
       }else{
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
-      }
-      if(!(l_angle < 60) && !(r_angle < 60) && !(re_angle < 60)){
+      }*/
+      if(!(l_angle < 60) && !(r_angle < 60)){
         standUp = false;
         Serial.println("Finishing stand up");
       }
