@@ -447,6 +447,16 @@ void main_loop() {
         transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);            //left assembly motor
         transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);           //right assembly motor
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);            //rear assembly motor
+
+        maxMsg = 5;
+
+        //Also enable sending poti reset in drive mode for initial reset
+        if(shouldSendStore){
+          //Serial.println("Sending reset message");
+          transmittedVESCMessage[5] = createActuatorsMessage(99, FOOTREST_ACTUATOR, ACTUATOR_STOP);
+          transmittedVESCMessage[6] = createActuatorsMessage(66, FOOTREST_ACTUATOR, ACTUATOR_STOP);
+          maxMsg = 7;
+        }
       }
       else{
         /*This is the stair climbing mode. It calculates the assemblies motors' speeds according to the joystick's position and constructs 
@@ -511,8 +521,8 @@ void main_loop() {
           }
         }
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, rear_assembly);
+        maxMsg = 5;
       }
-      maxMsg = 5;
     }
     else{
       if(config_state == FOOTREST){
@@ -574,6 +584,7 @@ void main_loop() {
         //transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_CURRENT, 4);
       }
       if(shouldSendStore){
+        //Serial.println("Sending reset message");
         transmittedVESCMessage[6] = createActuatorsMessage(66, FOOTREST_ACTUATOR, ACTUATOR_STOP);
         maxMsg = 7;
       }else{
@@ -623,9 +634,23 @@ void main_loop() {
       }else{
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
       }*/
+
+      //revert misalignment
       if(!(l_angle < 60) && !(r_angle < 60)){
-        standUp = false;
-        Serial.println("Finishing stand up");
+        if((l_angle-r_angle)>misalignment){
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 3000);
+          
+        }else if((r_angle-l_angle)>misalignment){
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 3000);
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+        }else{
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+
+          standUp = false;
+          Serial.println("Finishing stand up");
+        }
       }
     }
     if(lieDown){
@@ -635,28 +660,54 @@ void main_loop() {
 
       transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, 0);
       transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, 0);
-      //transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
+      transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
 
-      if(l_angle > 0 && r_angle > 0){
+      const int misalignment = 15;
+
+      if(l_angle > 0){
         //left
-        transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, -1500);
+        if(!(((l_angle-r_angle))>misalignment)){
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, -3000);
+        }else{
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, -3000/2);
+        }
       }else{
         transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
       }
       if(r_angle > 0){
         //right
-        transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, -1500);
+        if(!(((r_angle-l_angle))>misalignment)){
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, -3000);
+        }else{
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, -3000/2);
+        }
       }else{
         transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
       }
-      if(re_angle > 0){
+      //Exclude rear movement for now, too dangerous
+      /*if(re_angle < 60 && !(((re_angle-l_angle))>misalignment) && !(((re_angle-r_angle))>misalignment)){
         //right
-        transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, -1500);
+        transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 1500);
       }else{
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);
-      }
-      if(!(l_angle > 0) && !(r_angle > 0) && !(re_angle > 0)){
-        lieDown = false;
+      }*/
+
+      //revert misalignment
+      if(!(l_angle > 0) && !(r_angle > 0)){
+        if((l_angle-r_angle)>misalignment){
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, -3000);
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+          
+        }else if((r_angle-l_angle)>misalignment){
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, -3000);
+        }else{
+          transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);
+          transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);
+
+          lieDown = false;
+          Serial.println("Finishing lying down");
+        }
       }
     }
     maxMsg = 5;
@@ -1040,6 +1091,11 @@ void setup() {
   system_begin_time = millis();
   driveMode = true;
   tft.fillScreen(0xf80c);
+
+  //reset potis
+  //Serial.println("resetting potis");
+  shouldSendStore = true;
+
   while(1){
     main_loop();
     if(shortPress4){
