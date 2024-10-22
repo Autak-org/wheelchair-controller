@@ -9,7 +9,6 @@ int yMax = 3500, yMin = 180, xMax = 3510, xMin = 190;
 int yUpperThresh = 1860, yLowerThresh = 1780, xUpperThresh = 1840, xLowerThresh = 1760;
 int yMidLevel = 1820, xMidLevel = 1800;
 int left_motor = 0, right_motor = 0, left_assembly = 0, right_assembly = 0, rear_assembly = 0;
-float voltage1, voltage2 = 0;
 int speed = 0;
 uint8_t maximumVoltage = 25;
 uint16_t system_begin_time;
