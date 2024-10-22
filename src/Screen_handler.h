@@ -21,7 +21,7 @@ enum CONFIG_STATE{
 };
 
 void drawImage(const uint16_t *image_data, int width, int height, TFT_eSPI *tft);
-void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img);
+void createScreen(float speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img);
 void displayBatteries(uint8_t c1, uint8_t c2, TFT_eSPI *tft, TFT_eSprite *img);
 void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_mode);
 

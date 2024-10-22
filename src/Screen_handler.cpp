@@ -13,7 +13,7 @@ void drawImage(const uint16_t *image_data, int width, int height, TFT_eSPI *tft)
   tft->endWrite();
 };
 
-void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
+void createScreen(float speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
   //Function to generate the main UI on the TFT Screen
   int color;
 
@@ -37,8 +37,29 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
   img->setTextSize(2);
   // img->drawString("Speed", 25, 10, 4);
   img->setTextSize(2);
-  img->drawString(String(speed/10), 30, 20, 4);
-  img->drawString(String(speed%10), 62, 20, 4);
+
+  int speedInt = (int)(speed*10); //scale to keep decimal points
+  if(speed < -0.05){
+    if(speed < -100){
+      img->drawString(String("-"), 8, 20, 4);
+      img->drawString(String(-speedInt/100), 30, 20, 4);
+      img->drawString(String((speedInt/10)%10), 62, 20, 4);
+    }else{
+      img->drawString(String("-"), 8, 20, 4);
+      img->drawString(String((-speedInt/10)%10), 25, 20, 4);
+      img->drawString(".", 55, 20, 4);
+      img->drawString(String((-speedInt)%10), 62, 20, 4);
+    }
+  }else{
+    if(speed > 100){
+      img->drawString(String(speedInt/100), 30, 20, 4);
+      img->drawString(String((speedInt/10)%10), 62, 20, 4);
+    }else{
+      img->drawString(String((speedInt/10)%10), 25, 20, 4);
+      img->drawString(".", 55, 20, 4);
+      img->drawString(String((speedInt)%10), 62, 20, 4);
+    }
+  }
   img->setTextSize(1);
   img->drawString("kph", 95, 40, 4);
   img->pushSprite(tacho_posX, tacho_posY);
@@ -80,14 +101,19 @@ void displayBatteries(uint8_t c1, uint8_t c2, TFT_eSPI *tft, TFT_eSprite *img){
   int bat1_posX = 5;
   int bat1_posY = (240-100)/2-20;
 
+  //clamp c1 & c2 to avoid errors
+  if(c1>100) c1 = 100;
+  if(c2>100) c2 = 100;
+
   img->createSprite(100,100);
   img->fillSprite(TFT_BLUE);
   img->setTextColor(TFT_WHITE, 0xf80c);
   img->drawRect(12, 50, 10, 35, TFT_BLACK);
   img->fillRect(13, 51, 8, 33, 0xf80c);
   int height = (float)c1/100 * 33;
-  if (c1>50) color = TFT_GREEN;
-  else if(c1 <50 && c1>20) color = TFT_ORANGE;
+  if (c1>70) color = TFT_GREEN;
+  else if(c1<=70 && c1>45) color = TFT_YELLOW;
+  else if(c1<=45 && c1>20) color = TFT_ORANGE;
   else color = TFT_RED;
   img->fillRect(13, 84-height, 8, height, color);
   
@@ -110,8 +136,9 @@ void displayBatteries(uint8_t c1, uint8_t c2, TFT_eSPI *tft, TFT_eSprite *img){
   img->drawRect(12, 50, 10, 35, TFT_BLACK);
   img->fillRect(13, 51, 8, 33, 0xf80c);
   height = (float)c2/100 * 33;
-  if (c2>50) color = TFT_GREEN;
-  else if(c2 <50 && c2>20) color = TFT_ORANGE;
+  if (c2>70) color = TFT_GREEN;
+  else if(c2<=70 && c2>45) color = TFT_YELLOW;
+  else if(c2<=45 && c2>20) color = TFT_ORANGE;
   else color = TFT_RED;
   img->fillRect(13, 84-height, 8, height, color);
   img->setCursor(13, 40);
