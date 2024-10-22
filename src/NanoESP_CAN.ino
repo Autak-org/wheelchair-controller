@@ -268,6 +268,11 @@ float re_angle = 0; //rear angle
 uint8_t bat1_charge = 0;
 uint8_t bat2_charge = 0;
 
+int speed_goal_left = 0;
+int speed_goal_right = 0;
+int current_speed_left = 0;
+int current_speed_right = 0;
+
 float float16_to_float32(uint16_t h) {
     uint32_t sign = (h >> 15) & 0x1;
     uint32_t exponent = (h >> 10) & 0x1F;
@@ -442,8 +447,84 @@ void main_loop() {
         }
         speed = rps*2*M_PI*0.11f*3.6f; //wheels have an approximate 11cm radius
         speed /= 10; //Correction factor due to the motors not turning a the correct speed
-        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor); //left wheel motor
-        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor); //right wheel motor
+        speed_goal_left = -left_motor;
+        speed_goal_right = -right_motor;
+        int stepLeft = speed_goal_left/10;
+        int stepRight = speed_goal_right/10;
+        if(current_speed_left != speed_goal_left){
+          if(speed_goal_left > 0){
+            if(current_speed_left < speed_goal_left){
+              Serial.println("smaller");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left += stepLeft;
+              }
+            }else{
+              Serial.println("bigger");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left -= stepLeft;
+              }
+            }
+          }else{
+            if(current_speed_left < speed_goal_left){
+              //Serial.println("smaller");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left -= stepLeft;
+              }
+            }else{
+              //Serial.println("bigger");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left += stepLeft;
+              }
+            }
+          }
+        }
+        if(current_speed_right != speed_goal_right){
+          if(speed_goal_right > 0){
+            if(current_speed_right < speed_goal_right){
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right += stepRight;
+              }
+            }else{
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right -= stepRight;
+              }
+            }
+          }else{
+            if(current_speed_right < speed_goal_right){
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right -= stepRight;
+              }
+            }else{
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right += stepRight;
+              }
+            }
+          }
+        }
+
+        Serial.println(y_value);
+        Serial.print(speed_goal_left);
+        Serial.print(", ");
+        Serial.println(current_speed_left);
+
+        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -current_speed_left); //left wheel motor
+        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -current_speed_right); //right wheel motor
         transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);            //left assembly motor
         transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);           //right assembly motor
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);            //rear assembly motor
