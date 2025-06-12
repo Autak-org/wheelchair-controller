@@ -109,10 +109,10 @@ void get_joystick_position(int &xval, int &yval){
   if(y<= yMin) y = yMin;
 
   //Set value of x and y axi within the range (-1000, 1000)
-  if(x <= xLowerThresh) xval = map(x, (long)xMin, (long)xLowerThresh, -9000, 0);
-  if(x >= xUpperThresh) xval = map(x, (long)xUpperThresh, (long)xMax, 0, 9000);
-  if(y <= yLowerThresh) yval = map(y, (long)yMin, (long)yLowerThresh, -9000, 0);
-  if(y >= yUpperThresh) yval = map(y, (long)yUpperThresh, (long)yMax, 0, 9000);
+  if(x <= xLowerThresh) xval = map(x, (long)xMin, (long)xLowerThresh, -18000, 0);
+  if(x >= xUpperThresh) xval = map(x, (long)xUpperThresh, (long)xMax, 0, 18000);
+  if(y <= yLowerThresh) yval = map(y, (long)yMin, (long)yLowerThresh, -18000, 0);
+  if(y >= yUpperThresh) yval = map(y, (long)yUpperThresh, (long)yMax, 0, 18000);
 };
 
 void arcade_drive(int x_axis, int y_axis, int& left_motor, int& right_motor){
@@ -141,10 +141,16 @@ void arcade_drive(int x_axis, int y_axis, int& left_motor, int& right_motor){
   }
   else{
     if(x_axis >= 0){
+      //Inverted version
+      /*left_motor = -maximum;
+      right_motor = sum;*/
       left_motor = sum;
       right_motor = -maximum;
     }
     else{
+      //Inverted version
+      /*left_motor = difference;
+      right_motor = -maximum;*/
       left_motor = -maximum;
       right_motor = difference;
     }
@@ -308,6 +314,8 @@ float float16_to_float32(uint16_t h) {
 
 int climb = 0; //0: noclimb, 1: upwards, 2: downwards
 
+int speed_goal_left, speed_goal_right, current_speed_left, current_speed_right = 0;
+
 void main_loop() {
   /* This is the main loop of the program. As deepsleep is used, this function is called within an infinite loop in the setup phase of the ESP.
     Arguments:
@@ -442,8 +450,82 @@ void main_loop() {
         }
         speed = rps*2*M_PI*0.11f*3.6f; //wheels have an approximate 11cm radius
         speed /= 10; //Correction factor due to the motors not turning a the correct speed
-        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -left_motor); //left wheel motor
-        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -right_motor); //right wheel motor
+
+        speed_goal_left = left_motor;
+        speed_goal_right = right_motor;
+        int stepLeft = 2000;
+        int stepRight = 2000;
+        //int stepLeft = speed_goal_left/20;
+        //int stepRight = speed_goal_right/20;
+        if(current_speed_left != speed_goal_left){
+          if(speed_goal_left > 0){
+            if(current_speed_left < speed_goal_left){
+              //Serial.println("smaller");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left += stepLeft;
+              }
+            }else{
+              //Serial.println("bigger");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left -= stepLeft;
+              }
+            }
+          }else{
+            if(current_speed_left < speed_goal_left){
+              //Serial.println("smaller");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left += stepLeft;
+              }
+            }else{
+              //Serial.println("bigger");
+              if(abs(speed_goal_left - current_speed_left) < stepLeft){
+                current_speed_left = speed_goal_left;
+              }else{
+                current_speed_left -= stepLeft;
+              }
+            }
+          }
+        }
+        if(current_speed_right != speed_goal_right){
+          if(speed_goal_right > 0){
+            if(current_speed_right < speed_goal_right){
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right += stepRight;
+              }
+            }else{
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right -= stepRight;
+              }
+            }
+          }else{
+            if(current_speed_right < speed_goal_right){
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right += stepRight;
+              }
+            }else{
+              if(abs(speed_goal_right - current_speed_right) < stepRight){
+                current_speed_right = speed_goal_right;
+              }else{
+                current_speed_right -= stepRight;
+              }
+            }
+          }
+        }
+
+        transmittedVESCMessage[0] = createVESCMessage(11, CAN_PACKET_SET_RPM, -current_speed_left); //left wheel motor
+        transmittedVESCMessage[1] = createVESCMessage(9, CAN_PACKET_SET_RPM, -current_speed_right); //right wheel motor
         transmittedVESCMessage[2] = createVESCMessage(8, CAN_PACKET_SET_RPM, 0);            //left assembly motor
         transmittedVESCMessage[3] = createVESCMessage(10, CAN_PACKET_SET_RPM, 0);           //right assembly motor
         transmittedVESCMessage[4] = createVESCMessage(7, CAN_PACKET_SET_RPM, 0);            //rear assembly motor
