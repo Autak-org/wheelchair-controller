@@ -284,7 +284,6 @@ void main_loop() {
       }else{
         Serial.print("Received something from: ");
         printBin(receivedMessage.identifier);
-        receivedMessage.data
       }
     }
   }
