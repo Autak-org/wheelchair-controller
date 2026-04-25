@@ -21,6 +21,13 @@ enum COMMAND_ID{
   CAN_PACKET_SET_CURRENT_HANDBRAKE_REL = 13
 };
 
+//Enumerates the actuators that are used within the code
+enum ACTUATOR{
+  FOOTREST_ACTUATOR = 0,
+  BACKREST_ACTUATOR = 1,
+  SEAT_ACTUATOR = 2
+};
+
 enum ACTUATOR_ACTION{
   ACTUATOR_EXTEND,
   ACTUATOR_RETRACT,
@@ -29,7 +36,7 @@ enum ACTUATOR_ACTION{
 
 uint32_t get_scaling(enum COMMAND_ID id);
 twai_message_t createVESCMessage(uint8_t vescId, enum COMMAND_ID cmdId, float val);
-twai_message_t createActuatorsMessage(uint8_t actId, bool isBackrest, ACTUATOR_ACTION action);
+twai_message_t createActuatorsMessage(uint8_t actId, ACTUATOR actuator, ACTUATOR_ACTION action);
 void print_twai_status();
 String print_vesc_message(twai_message_t *receivedMessage);
 

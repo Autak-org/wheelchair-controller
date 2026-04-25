@@ -44,7 +44,7 @@ twai_message_t createVESCMessage(uint8_t vescId, enum COMMAND_ID cmdId, float va
   return message;
 };
 
-twai_message_t createActuatorsMessage(uint8_t actId, bool isBackrest, ACTUATOR_ACTION action){
+twai_message_t createActuatorsMessage(uint8_t actId, ACTUATOR actuator, ACTUATOR_ACTION action){
   /* This function constructs the TWAI message that will be processed by the actuators controller to control the actuators
     Arguments:
       - uint8_t actId: The actuator's ID
@@ -56,15 +56,27 @@ twai_message_t createActuatorsMessage(uint8_t actId, bool isBackrest, ACTUATOR_A
   message.identifier = actId;
   message.data_length_code = 2;
   
-  if(isBackrest){
+  if(actuator == BACKREST_ACTUATOR){
     if(action == ACTUATOR_EXTEND) message.data[0] = 0b1000;
     else if(action == ACTUATOR_RETRACT) message.data[0] = 0b0100;
     else message.data[0] = 0b0000;
+
+    message.data[1] = 0b0000;
   }
-  else{
+  else if(actuator == FOOTREST_ACTUATOR){
     if(action == ACTUATOR_EXTEND) message.data[0] = 0b0010;
     else if (action == ACTUATOR_RETRACT) message.data[0] = 0b1;
     else message.data[0] = 0b0000;
+
+    message.data[1] = 0b0000;
+  }else if(actuator == SEAT_ACTUATOR){
+    if(action == ACTUATOR_EXTEND) message.data[1] = 0b0010;
+    else if (action == ACTUATOR_RETRACT) message.data[1] = 0b1;
+    else message.data[1] = 0b0000;
+
+    message.data[0] = 0b0000;
+  }else{
+    Serial.println("Error, not a valid actuator");
   }
 
   return message;

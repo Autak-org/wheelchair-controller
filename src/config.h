@@ -25,7 +25,7 @@ extern int yUpperThresh, yLowerThresh, xUpperThresh, xLowerThresh;
 extern int yMidLevel, xMidLevel;
 extern int left_motor, right_motor, left_assembly, right_assembly, rear_assembly;
 extern float voltage1, voltage2;
-extern int speed;
+//extern int speed;
 extern uint8_t maximumVoltage;
 extern uint16_t system_begin_time;
 

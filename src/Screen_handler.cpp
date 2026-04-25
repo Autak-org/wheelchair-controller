@@ -13,11 +13,11 @@ void drawImage(const uint16_t *image_data, int width, int height, TFT_eSPI *tft)
   tft->endWrite();
 };
 
-void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
+void createScreen(float speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
   //Function to generate the main UI on the TFT Screen
   int color;
 
-  tft->setCursor(30, 30);
+  /*tft->setCursor(30, 30);
   img->createSprite(30, 50);
   img->fillSprite(0xf80c);
   img->pushSprite(10, 105, TFT_BLACK);
@@ -25,23 +25,50 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
   img->createSprite(30, 50);
   img->fillSprite(0xf80c);
   img->pushSprite(280, 105, TFT_BLACK);
-  img->deleteSprite();
+  img->deleteSprite();*/
 
   //Tachometer
-  img->createSprite(200, 100);
+  int tacho_posX = (240-140)/2-10;
+  int tacho_posY = 70;
+
+  img->createSprite(140, 100);
   img->fillSprite(0xf80c);
   img->setTextColor(TFT_WHITE, 0xf80c);
   img->setTextSize(2);
   // img->drawString("Speed", 25, 10, 4);
-  img->setTextSize(3);
-  img->drawString(String(speed/10), 40, 20, 4);
-  img->drawString(String(speed%10), 85, 20, 4);
+  img->setTextSize(2);
+
+  int speedInt = (int)(speed*10); //scale to keep decimal points
+  if(speed < -0.05){
+    if(speed < -100){
+      img->drawString(String("-"), 8, 20, 4);
+      img->drawString(String(-speedInt/100), 30, 20, 4);
+      img->drawString(String((speedInt/10)%10), 62, 20, 4);
+    }else{
+      img->drawString(String("-"), 8, 20, 4);
+      img->drawString(String((-speedInt/10)%10), 25, 20, 4);
+      img->drawString(".", 55, 20, 4);
+      img->drawString(String((-speedInt)%10), 62, 20, 4);
+    }
+  }else{
+    if(speed > 100){
+      img->drawString(String(speedInt/100), 30, 20, 4);
+      img->drawString(String((speedInt/10)%10), 62, 20, 4);
+    }else{
+      img->drawString(String((speedInt/10)%10), 25, 20, 4);
+      img->drawString(".", 55, 20, 4);
+      img->drawString(String((speedInt)%10), 62, 20, 4);
+    }
+  }
   img->setTextSize(1);
-  img->drawString("kph", 130, 40, 4);
-  img->pushSprite(60, 70);
+  img->drawString("kph", 95, 40, 4);
+  img->pushSprite(tacho_posX, tacho_posY);
   img->deleteSprite();
 
   //Mode Selector
+  int mode_posX = (240-170)/2;
+  int mode_posY = 170;
+
   img->createSprite(170, 50);
   for(int y=0; y<50; y++){
     for(int x=0; x<170; x++){
@@ -49,8 +76,11 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
       img->drawPixel(x, y, color);
     }
   }
-  img->pushSprite(80, 180);
+  img->pushSprite(mode_posX, mode_posY);
   img->deleteSprite();
+
+  int logo_posX = (240-160)/2;
+  int logo_posY = 12;
 
   //Autak Logo
   img->createSprite(160,60);
@@ -60,63 +90,91 @@ void createScreen(uint16_t speed, bool mode, TFT_eSPI *tft, TFT_eSprite *img){
       img->drawPixel(x, y, color);
     }
   }
-  img->pushSprite(80, 10, 0xf8aa);
+  img->pushSprite(logo_posX, logo_posY, 0xf8aa);
   img->deleteSprite();
 };
 
-void displayBatteries(float v1, float v2, TFT_eSPI *tft, TFT_eSprite *img){
+void displayBatteries(uint8_t c1, uint8_t c2, TFT_eSPI *tft, TFT_eSprite *img){
   //Function to display the battery gauges on the TFT Screen
   int color;
   //Battery 1
+  int bat1_posX = 5;
+  int bat1_posY = (240-100)/2-20;
+
+  //clamp c1 & c2 to avoid errors
+  if(c1>100) c1 = 100;
+  if(c2>100) c2 = 100;
+
   img->createSprite(100,100);
   img->fillSprite(TFT_BLUE);
   img->setTextColor(TFT_WHITE, 0xf80c);
   img->drawRect(12, 50, 10, 35, TFT_BLACK);
   img->fillRect(13, 51, 8, 33, 0xf80c);
-  int height = (v1/maximumVoltage) * 33;
-  if (v1/maximumVoltage>0.5) color = TFT_GREEN;
-  else if(v1/maximumVoltage <0.5 && v1/maximumVoltage>0.2) color = TFT_ORANGE;
+  int height = (float)c1/100 * 33;
+  if (c1>70) color = TFT_GREEN;
+  else if(c1<=70 && c1>45) color = TFT_YELLOW;
+  else if(c1<=45 && c1>20) color = TFT_ORANGE;
   else color = TFT_RED;
   img->fillRect(13, 84-height, 8, height, color);
   
-  //Battery 2
-  img->drawRect(37, 50, 10, 35, TFT_BLACK);
-  img->fillRect(38, 51, 8, 33, 0xf80c);
-  height = (v2/maximumVoltage) * 33;
-  if (v2/maximumVoltage>0.5) color = TFT_GREEN;
-  else if(v2/maximumVoltage <0.5 && v2/maximumVoltage>0.2) color = TFT_ORANGE;
-  else color = TFT_RED;
-  img->fillRect(38, 84-height, 8, height, color);
+  //New, print batteries separately
   img->setCursor(13, 40);
   img->setTextSize(1);
-  img->print(F("B1  B2"));
+  img->print(F("B1"));
   img->setCursor(10, 87);
-  img->printf(("%i%%"), (int)(v1/maximumVoltage * 100));
-  img->setCursor(36, 87);
-  img->printf(("%i%%"), (int)(v2/maximumVoltage * 100));
-  img->pushSprite(5, 140, TFT_BLUE);
+  img->printf(("%i%%"), (int)(c1));
+  img->pushSprite(bat1_posX, bat1_posY, TFT_BLUE);
+  img->deleteSprite();
+
+  //Battery 2
+  int bat2_posX = 240-40;
+  int bat2_posY = (240-100)/2-20;
+
+  img->createSprite(100,100);
+  img->fillSprite(TFT_BLUE);
+  img->setTextColor(TFT_WHITE, 0xf80c);
+  img->drawRect(12, 50, 10, 35, TFT_BLACK);
+  img->fillRect(13, 51, 8, 33, 0xf80c);
+  height = (float)c2/100 * 33;
+  if (c2>70) color = TFT_GREEN;
+  else if(c2<=70 && c2>45) color = TFT_YELLOW;
+  else if(c2<=45 && c2>20) color = TFT_ORANGE;
+  else color = TFT_RED;
+  img->fillRect(13, 84-height, 8, height, color);
+  img->setCursor(13, 40);
+  img->setTextSize(1);
+  img->print(F("B2"));
+  img->setCursor(10, 87);
+  img->printf(("%i%%"), (int)(c2));
+  img->pushSprite(bat2_posX, bat2_posY, TFT_BLUE);
   img->deleteSprite();
 };
 
-void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
+void configureMode(TFT_eSPI *tft, TFT_eSprite *img, int config_state){
   //Function that generates the configuration menu on the TFT Screen and also implements the configuration menu functionality
   //Toggle all mode selectors to false
   bool calibrationMode = false;
   bool backrestMode = false;
   bool footrestMode = false;
-  String menu[] = {"Calibration", "Backrest", "Footrest"};
+  String menu[] = {"Calibration", "Footrest", "Backrest", "Seat", "Left ASM", "Right ASM", "Rear ASM"};
 
   //Navigation Arrows
   tft->setCursor(30, 30);
   img->createSprite(30, 50);
-  img->drawLine(30, 0, 0, 25, TFT_WHITE);
+  /*img->drawLine(30, 0, 0, 25, TFT_WHITE);
   img->drawLine(0, 25, 30, 50, TFT_WHITE);
-  img->pushSprite(10, 105, TFT_BLACK);
+  img->pushSprite(10, 105, TFT_BLACK);*/
+  img->drawLine(18, 0, 0, 15, TFT_WHITE);
+  img->drawLine(0, 15, 18, 30, TFT_WHITE);
+  img->pushSprite(20, 140, TFT_BLACK);
   img->deleteSprite();
   img->createSprite(30, 50);
-  img->drawLine(0, 0, 30, 25, TFT_WHITE);
+  /*img->drawLine(0, 0, 30, 25, TFT_WHITE);
   img->drawLine(30, 25, 0, 50, TFT_WHITE);
-  img->pushSprite(280, 105, TFT_BLACK);
+  img->pushSprite(280, 105, TFT_BLACK);*/
+  img->drawLine(0, 0, 18, 15, TFT_WHITE);
+  img->drawLine(18, 15, 0, 30, TFT_WHITE);
+  img->pushSprite(200, 140, TFT_BLACK);
   img->deleteSprite();
   //Autak Logo
   img->createSprite(160,60);
@@ -126,34 +184,25 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
       img->drawPixel(x, y, color);
     }
   }
-  img->pushSprite(80, 10, 0xf8aa);
+  img->pushSprite(40, 10, 0xf8aa);
   img->deleteSprite();
 
-  if(shortPress2){
-    if(selection == 0) selection = 2;
-    else selection--;
-  }
-  if(shortPress3){
-    if(selection == 2) selection = 0;
-    else selection++;
-  }
-  
 
-  switch(selection){
-    case 0:
+  switch(config_state){
+    case CALIBRATION:
       //Calibration menu
       if(!calibrating){
         img->createSprite(170, 50);
         img->fillSprite(0xf80c);
         img->setTextSize(2);
-        img->drawString(menu[selection], 15, 10);
-        img->pushSprite(80, 180, TFT_BLACK);
+        img->drawString(menu[config_state], 15, 10);
+        img->pushSprite(40, 180, TFT_BLACK);
         img->deleteSprite();
-        img->createSprite(200, 100);
+
+        img->createSprite(160, 90);
         img->fillSprite(0xf80c);
-        img->setCursor(10, 10);
-        img->print(F("Press Mode to begin calibration"));
-        img->pushSprite(60, 70);
+        img->print(F("Press Mode to\nbegin\ncalibration"));
+        img->pushSprite(40, 90);
         img->deleteSprite();
         if(shortPress1){
           //If a short press is detected, toggle calibration flag on
@@ -164,7 +213,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
           Serial.println(startingTime);
         }
       }else{
-        //Keep track of current time
+        //Keep track of current time (only serial, no graphics)
         currentTime = millis();
         Serial.print(F("Current time: "));
         Serial.print(currentTime);
@@ -183,11 +232,11 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
       
           //Begin the calibration process
           if(currentTime - startingTime < 4000){
-            img->createSprite(200, 100);
+            img->createSprite(160, 90);
             img->fillSprite(0xf80c);
-            img->setCursor(10, 10);
-            img->print(F("Let the joystick rest for 4 sec"));
-            img->pushSprite(60, 70);
+            img->setTextSize(2);
+            img->print(F("Let the\njoystick rest\nfor 4 sec"));
+            img->pushSprite(40, 90);
             img->deleteSprite();
             x_value = analogRead(JOYSTICKX);
             y_value = analogRead(JOYSTICKY);
@@ -199,11 +248,11 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
             yMidLevel = (yUpperThresh + yLowerThresh)/2;
           }
           else{
-            img->createSprite(200, 100);
+            img->createSprite(160, 90);
             img->fillSprite(0xf80c);
-            img->setCursor(10, 10);
-            img->print(F("Move the joystick in circles for 4 sec"));
-            img->pushSprite(60, 70);
+            img->setTextSize(2);
+            img->print(F("Move the\njoystick in\ncircles for\n4 sec"));
+            img->pushSprite(40, 90);
             img->deleteSprite();
             x_value = analogRead(JOYSTICKX);
             y_value = analogRead(JOYSTICKY);
@@ -227,17 +276,17 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
         } 
       }
       break;
-    case 1:
+    case BACKREST:
       //Backrest adjust menu
       img->createSprite(170, 50);
       img->fillSprite(0xf80c);
       img->setTextSize(2);
-      img->drawString(menu[selection], 37, 10);
-      img->pushSprite(80, 180, TFT_BLACK);
+      img->drawString(menu[config_state], 37, 10);
+      img->pushSprite(40, 180, TFT_BLACK);
       img->deleteSprite();
       //Change back angle depending on the joystick input
       if(analogRead(JOYSTICKY)>yMax-400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_EXTEND);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_EXTEND);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 50, 100, 0, TFT_WHITE);
@@ -248,7 +297,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
         img->deleteSprite();
       }
       else if(analogRead(JOYSTICKY)<yMin+400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_RETRACT);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_RETRACT);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 30, 100, 80, TFT_WHITE);
@@ -259,29 +308,29 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
         img->deleteSprite();
       }
       else{
-        transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_STOP);
-        img->createSprite(200, 100);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, true, ACTUATOR_STOP);
+        img->createSprite(160, 90);
         img->fillSprite(0xf80c);
-        img->setCursor(10, 10);
         img->setTextColor(TFT_WHITE, 0xf80c);
-        img->print(F("Move the joystick up or down to adjust the backrest."));
-        img->pushSprite(60,70);
+        //img->print(F("Move the joystick up or down to adjust the backrest."));
+        img->print(F("Adjust the\nbackrest."));
+        img->pushSprite(40,90);
         img->deleteSprite();
       }
       if(backAngle>=maxBackAngle) backAngle = maxBackAngle;
       if(backAngle<=minBackAngle) backAngle = minBackAngle;  
       break;
-    case 2:
+    case FOOTREST:
       //Footrest adjust menu
       img->createSprite(170, 50);
       img->fillSprite(0xf80c);
       img->setTextSize(2);
-      img->drawString(menu[selection], 37, 10);
-      img->pushSprite(80, 180, TFT_BLACK);
+      img->drawString(menu[config_state], 37, 10);
+      img->pushSprite(40, 180, TFT_BLACK);
       img->deleteSprite();
       //Change foot rest angle depending on the joystick input
       if(analogRead(JOYSTICKY)>yMax-400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 50, 100, 0, TFT_WHITE);
@@ -292,7 +341,7 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
         img->deleteSprite();
       }
       else if(analogRead(JOYSTICKY)<yMin+400){
-        transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
         img->createSprite(200, 100);
         img->fillSprite(0xf80c);
         img->drawLine(50, 30, 100, 80, TFT_WHITE);
@@ -303,17 +352,111 @@ void configureMode(TFT_eSPI *tft, TFT_eSprite *img){
         img->deleteSprite();
       }
       else{
-        transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_STOP);
-        img->createSprite(200, 100);
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_STOP);
+        img->createSprite(160, 90);
         img->fillSprite(0xf80c);
-        img->setCursor(10, 10);
         img->setTextColor(TFT_WHITE, 0xf80c);
-        img->print(F("Move the joystick up or down to adjust the footrest."));
-        img->pushSprite(60,70);
+        img->print(F("Adjust the\nfootrest."));
+        img->pushSprite(40,90);
         img->deleteSprite();
       }
       if(footAngle>=maxFootAngle) footAngle = maxFootAngle;
       if(footAngle<=minFootAngle) footAngle = minFootAngle;
+      break;
+    case SEAT:
+      //Footrest adjust menu
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString(menu[config_state], 37, 10);
+      img->pushSprite(40, 180, TFT_BLACK);
+      img->deleteSprite();
+      //Change foot rest angle depending on the joystick input
+      if(analogRead(JOYSTICKY)>yMax-400){
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_EXTEND);
+        img->createSprite(200, 100);
+        img->fillSprite(0xf80c);
+        img->drawLine(50, 50, 100, 0, TFT_WHITE);
+        img->drawLine(100, 0, 150, 50, TFT_WHITE);
+        img->drawLine(50, 70, 100, 20, TFT_WHITE);
+        img->drawLine(100, 20, 150, 70, TFT_WHITE);
+        img->pushSprite(60, 70);
+        img->deleteSprite();
+      }
+      else if(analogRead(JOYSTICKY)<yMin+400){
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_RETRACT);
+        img->createSprite(200, 100);
+        img->fillSprite(0xf80c);
+        img->drawLine(50, 30, 100, 80, TFT_WHITE);
+        img->drawLine(100, 80, 150, 30, TFT_WHITE);
+        img->drawLine(50, 50, 100, 100, TFT_WHITE);
+        img->drawLine(100, 100, 150, 50, TFT_WHITE);
+        img->pushSprite(60, 70);
+        img->deleteSprite();
+      }
+      else{
+        //transmittedActuatorsMessage = createActuatorsMessage(99, false, ACTUATOR_STOP);
+        img->createSprite(160, 90);
+        img->fillSprite(0xf80c);
+        img->setTextColor(TFT_WHITE, 0xf80c);
+        img->print(F("Adjust the\nseat."));
+        img->pushSprite(40,90);
+        img->deleteSprite();
+      }
+      if(footAngle>=maxFootAngle) footAngle = maxFootAngle;
+      if(footAngle<=minFootAngle) footAngle = minFootAngle;
+      break;
+    case ASSEMBLY_LEFT:
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString(menu[config_state], 15, 10);
+      img->pushSprite(40, 180, TFT_BLACK);
+      img->deleteSprite();
+
+      img->createSprite(160, 90);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      //img->drawString("Adjust the left wheel assembly", 10, 10);
+      img->setTextColor(TFT_WHITE, 0xf80c);
+      img->print(F("Adjust the\nleft wheel\nassembly."));
+      img->pushSprite(40, 90, TFT_BLACK);
+      img->deleteSprite();
+      break;
+    case ASSEMBLY_RIGHT:
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString(menu[config_state], 15, 10);
+      img->pushSprite(40, 180, TFT_BLACK);
+      img->deleteSprite();
+
+      img->createSprite(160, 90);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      //img->setCursor(10, 10);
+      //img->drawString("Adjust the right wheel assembly", 10, 10);
+      img->setTextColor(TFT_WHITE, 0xf80c);
+      img->print(F("Adjust the\nright wheel\nassembly."));
+      img->pushSprite(40, 90, TFT_BLACK);
+      img->deleteSprite();
+      break;
+    case ASSEMBLY_REAR:
+      img->createSprite(170, 50);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      img->drawString(menu[config_state], 15, 10);
+      img->pushSprite(40, 180, TFT_BLACK);
+      img->deleteSprite();
+
+      img->createSprite(160, 90);
+      img->fillSprite(0xf80c);
+      img->setTextSize(2);
+      //img->drawString("Adjust the rear wheel assembly", 10, 10);
+      img->setTextColor(TFT_WHITE, 0xf80c);
+      img->print(F("Adjust the\nrear wheel\nassembly."));
+      img->pushSprite(40, 90, TFT_BLACK);
+      img->deleteSprite();
       break;
     default:
       break;
