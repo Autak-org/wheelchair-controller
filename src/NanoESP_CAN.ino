@@ -375,7 +375,7 @@ void main_loop() {
         Serial.println(transmittedVESCMessage[i].data[3]);
       }
       else{ 
-        Serial.print(F("Could not transmit VESC message No: "));
+        //Serial.print(F("Could not transmit VESC message No: "));
         Serial.println(i);
       } 
     }
@@ -396,7 +396,7 @@ void main_loop() {
     configureMode(&tft, &img);
   }
   else{
-    Serial.println("screen");
+    // Serial.println("screen");
     createScreen(abs((int)20), driveMode, &tft, &img);
   }
 
